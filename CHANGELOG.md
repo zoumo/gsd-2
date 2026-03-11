@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.3.6] - 2026-03-11
+
+### Fixed
+- Postinstall no longer triggers hidden `sudo` prompt on Linux — Playwright's `--with-deps` flag is no longer run automatically, preventing `npm install -g` from appearing to hang (#67)
+- Auto-commit dirty files before branch switch to prevent lost work during slice transitions
+
+### Changed
+- Updated README to reflect current commands, extensions, and step mode workflow
+
 ## [2.3.5] - 2026-03-11
 
 ### Fixed
@@ -120,7 +129,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - License updated to MIT
 
-[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.3.5...HEAD
+[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.3.6...HEAD
+[2.3.6]: https://github.com/gsd-build/gsd-2/compare/v2.3.5...v2.3.6
 [2.3.5]: https://github.com/gsd-build/gsd-2/compare/v2.3.4...v2.3.5
 [2.3.4]: https://github.com/gsd-build/gsd-2/compare/v0.3.3...v2.3.4
 [0.3.3]: https://github.com/gsd-build/gsd-2/compare/v0.3.1...v0.3.3
