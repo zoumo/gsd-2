@@ -1,82 +1,72 @@
-# M002: Proactive Secret Management
+# M002: Branded Installer & Onboarding Experience
 
-**Vision:** Front-load API key collection during milestone planning so auto-mode runs uninterrupted. The LLM forecasts which secrets a milestone needs, generates step-by-step guidance for finding each key, and collects them all before execution begins.
+**Vision:** Transform the entire first-contact experience — from `npm install` through first working session — into a polished, guided, trust-building flow that gets users from zero to productive with no friction.
 
 ## Success Criteria
 
-- After milestone planning, a secrets manifest exists listing all predicted API keys with per-key step-by-step guidance
-- Auto-mode pauses to collect uncollected secrets before dispatching the first slice
-- The guided `/gsd` flow triggers the same collection after planning
-- Keys already present in the environment are silently skipped
-- The collection UX shows a summary of all needed keys before collecting them one-by-one
-- `npm run build` passes
-- `npm run test` passes (no new failures beyond pre-existing)
+- After `npm install -g gsd-pi`, the terminal shows a clean branded postinstall flow with the GSD ASCII logo, spinners, staged progress, and boxed summary
+- On first `gsd` launch, a unified onboarding wizard guides the user through LLM provider auth (OAuth or API key) and optional tool API keys before the TUI opens
+- After completing onboarding, the user drops straight into a working TUI session with an authenticated LLM — no need to discover `/login`
+- Users who skip onboarding or already have auth configured go straight to the TUI with no friction
+- The entire flow is visually polished — comparable to openclaw's onboarding or vercel-labs/skills installer
 
 ## Key Risks / Unknowns
 
-- **Prompt compliance** — LLM must reliably produce a well-formatted secrets manifest during planning
-- **State machine insertion** — Adding a new phase to `dispatchNextUnit` must not break existing flow
+- Spinner animation during synchronous subprocess execution — clack's spinner may not animate while `execSync` blocks the event loop → **retired in S01**
+- OAuth flows outside TUI — the pi-ai OAuth providers (`loginAnthropic`, etc.) require browser opening + user pasting an auth code back. These are currently wired to the TUI's `LoginDialogComponent`. Need to prove we can drive the same flow from a standalone clack-based wizard using `p.text()` for code input and `exec('open <url>')` for browser opening.
+- Clack inside pre-TUI context — `@clack/prompts` writes to stdout. The wizard runs before `InteractiveMode` takes over the terminal. Need to verify that clack's raw mode cleanup (cursor visibility, etc.) doesn't corrupt the subsequent TUI session.
 
 ## Proof Strategy
 
-- Prompt compliance → retire in S01 by proving the plan-milestone prompt produces a parseable manifest when the milestone involves external APIs
-- State machine insertion → retire in S03 by proving auto-mode dispatches collect-secrets at the right time and proceeds normally after
+- Spinner + async subprocess → **retired in S01** by proving the spinner animates during Playwright download
+- OAuth outside TUI → retire in S03 by proving Anthropic OAuth login works end-to-end from the clack-based onboarding wizard (browser opens, user pastes code, credentials are stored). Originally planned for S02, but S02 was scoped to logo work only.
+- Clack → TUI handoff → retire in S03 by proving the TUI starts cleanly after the wizard completes. Originally planned for S02, but S02 was scoped to logo work only.
 
 ## Verification Classes
 
-- Contract verification: unit tests for manifest parser, build passes, existing tests pass
-- Integration verification: auto-mode dispatches collect-secrets phase correctly, guided flow triggers collection
-- Operational verification: none — dev-time workflow
-- UAT / human verification: real milestone planning produces usable manifest, collection UX is clear
+- Contract verification: postinstall and wizard run to completion, produce expected output
+- Integration verification: full flow from `npm install -g` → `gsd` → onboarding → working TUI session
+- Operational verification: works in TTY and non-TTY, handles failures, respects skip/existing-auth
+- UAT / human verification: visual quality judgment, LLM auth actually works for a real chat
 
 ## Milestone Definition of Done
 
 This milestone is complete only when all are true:
 
-- Planning prompts instruct the LLM to forecast secrets and write a manifest
-- The manifest file persists in `.gsd/milestones/M00x/` with per-key guidance
-- `secure_env_collect` supports multi-line guidance beyond the single-line hint
-- Auto-mode dispatches a collect-secrets phase between plan-milestone and first slice
-- Guided `/gsd` flow triggers the same collection
-- Existing keys are detected and silently skipped
-- Destination is inferred from project context
-- Success criteria are re-verified against live behavior
-- `npm run build` passes
-- `npm run test` passes
+- All slices are complete and verified
+- `npm install -g gsd-pi` produces branded postinstall with ASCII logo
+- First `gsd` launch shows the onboarding wizard which guides through LLM auth + optional keys
+- After onboarding, the TUI session has a working authenticated LLM
+- Returning users (already authed) skip the wizard and go straight to TUI
+- The visual quality bar is met for both postinstall and onboarding
+- Final integrated acceptance: a fresh install → onboarding → send a real message → get a response
 
 ## Requirement Coverage
 
-- Covers: R001, R002, R003, R004, R005, R006, R007, R008, R009, R010
+- Covers: R008 (npm install experience)
+- New: R012 (first-run onboarding — LLM auth before TUI)
 - Partially covers: none
-- Leaves for later: R011 (multi-milestone forecasting), R012 (rotation reminders)
+- Leaves for later: none
 - Orphan risks: none
 
 ## Slices
 
-- [x] **S01: Secret Forecasting & Manifest** `risk:medium` `depends:[]`
-  > After this: running plan-milestone on a project involving external APIs produces a `.gsd/milestones/M00x/M00x-SECRETS.md` manifest file with predicted keys and step-by-step guidance for each. Verified by planning a test milestone and confirming the manifest is parseable.
+- [x] **S01: Branded postinstall with clack** `risk:medium` `depends:[]`
+  > After this: `npm install -g gsd-pi` shows a structured, branded installer flow with spinners, staged progress, and boxed summary instead of raw ASCII dump
 
-- [ ] **S02: Enhanced Collection UX** `risk:medium` `depends:[S01]`
-  > After this: `secure_env_collect` shows a summary screen of all needed keys with guidance before collecting, displays multi-line guidance per key during collection, detects and silently skips keys already in the environment, and infers the write destination from project context. Verified by running the enhanced tool with a test manifest.
+- [x] **S02: ASCII logo in postinstall + first-launch banner** `risk:low` `depends:[S01]`
+  > After this: postinstall shows the GSD block-letter logo before the clack flow; the existing first-launch banner in loader.ts also uses the shared logo constant
 
-- [ ] **S03: Auto-Mode & Guided Flow Integration** `risk:low` `depends:[S01,S02]`
-  > After this: auto-mode dispatches a collect-secrets phase after plan-milestone and before the first slice. The guided `/gsd` flow triggers the same collection. Collected status is tracked in the manifest. Verified by running auto-mode through the plan → collect → execute transition.
-
-- [ ] **S04: End-to-End Verification** `risk:low` `depends:[S03]`
-  > After this: the full flow is verified end-to-end — a real milestone planning session that involves external APIs produces a manifest, triggers collection, and auto-mode proceeds to slice execution without blocking on secrets. All tests pass, build succeeds.
+- [ ] **S03: Unified first-run onboarding wizard** `risk:high` `depends:[S01]`
+  > After this: first `gsd` launch walks the user through LLM provider selection (Anthropic OAuth / API key / OpenAI / others / skip), runs the auth flow, collects optional tool keys, and drops into a working TUI session
 
 ## Boundary Map
 
 ### S01 → S02
 
 Produces:
-- `types.ts` → `SecretsManifestEntry` interface (key, service, guidance, status, destination)
-- `types.ts` → `SecretsManifest` interface (entries array, milestone, generated_at)
-- `files.ts` → `parseSecretsManifest(content: string): SecretsManifest` parser
-- `files.ts` → `formatSecretsManifest(manifest: SecretsManifest): string` writer
-- `paths.ts` → `resolveMilestoneFile` recognizes `"SECRETS"` suffix
-- `prompts/plan-milestone.md` → instructions to write `M00x-SECRETS.md` during planning
-- `templates/secrets-manifest.md` → template for the manifest format
+- `@clack/prompts` and `picocolors` available as production dependencies
+- Postinstall script pattern using clack intro/spinner/note/outro
 
 Consumes:
 - nothing (first slice)
@@ -84,8 +74,8 @@ Consumes:
 ### S01 → S03
 
 Produces:
-- Same as S01 → S02 (manifest types, parser, paths)
-- `files.ts` → `parseSecretsManifest` for reading manifest status
+- `@clack/prompts` and `picocolors` available as production dependencies
+- Pattern for structured CLI output with clack
 
 Consumes:
 - nothing (first slice)
@@ -93,30 +83,14 @@ Consumes:
 ### S02 → S03
 
 Produces:
-- `get-secrets-from-user.ts` → enhanced `secure_env_collect` with `guidance` field on keys
-- `get-secrets-from-user.ts` → summary screen TUI component before collection
-- `get-secrets-from-user.ts` → `checkExistingEnvKeys(keys, envPath): string[]` helper
-- `get-secrets-from-user.ts` → `detectDestination(basePath): "dotenv" | "vercel" | "convex"` helper
+- Shared ASCII logo constant importable from `src/logo.ts`
+- Logo rendering pattern with picocolors
 
-Consumes from S01:
-- `types.ts` → `SecretsManifestEntry`, `SecretsManifest` interfaces
-- `files.ts` → `parseSecretsManifest` to read the manifest
-- `paths.ts` → `resolveMilestoneFile(base, mid, "SECRETS")` to find the manifest
+### S03
 
-### S03 → S04
-
-Produces:
-- `auto.ts` → collect-secrets unit type in `dispatchNextUnit`
-- `auto.ts` → `buildCollectSecretsPrompt()` or direct TUI dispatch (no LLM session needed)
-- `guided-flow.ts` → collection trigger after milestone planning
-- `state.ts` → secrets collection status in derived state
-- `files.ts` → `updateSecretsManifestStatus()` to mark keys as collected/skipped
-
-Consumes from S01:
-- `types.ts` → manifest types
-- `files.ts` → manifest parser/writer
-- `paths.ts` → SECRETS file resolution
-
-Consumes from S02:
-- `get-secrets-from-user.ts` → enhanced `secure_env_collect` with guidance and summary
-- `get-secrets-from-user.ts` → `checkExistingEnvKeys`, `detectDestination`
+Consumes:
+- `@clack/prompts` and `picocolors` (from S01)
+- Shared ASCII logo (from S02)
+- `AuthStorage` API: `.set()`, `.has()`, `.login()` (from pi-coding-agent)
+- OAuth provider functions: `loginAnthropic`, `loginGitHubCopilot`, etc. (from pi-ai)
+- Existing wizard: `runWizardIfNeeded()` in `src/wizard.ts` (to be replaced/absorbed)

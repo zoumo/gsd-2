@@ -2,27 +2,29 @@
 
 ## What This Is
 
-GSD (Get Shit Done) is a CLI coding agent harness built on pi. It provides a structured planning methodology — milestones, slices, tasks — with auto-mode that executes work autonomously via fresh LLM sessions per unit of work. Ships as the `gsd-pi` npm package.
+GSD 2.0 is a branded npm CLI (`npm install -g gsd-pi`) that ships the full GSD coding agent experience as a standalone product. It embeds `@mariozechner/pi-coding-agent` via SDK, stores state in `~/.gsd/`, bundles the GSD extension, all supporting extensions, agents, and AGENTS.md context, and runs pi's `InteractiveMode` under the `gsd` brand. Users run `gsd` — not `pi`.
 
 ## Core Value
 
-Autonomous multi-session execution: the agent plans, executes, verifies, and advances through an entire milestone without human intervention, resuming cleanly from crashes and compaction.
+A single `npm install -g gsd-pi` gives any developer a fully configured, GSD-branded coding agent with the GSD extension, all supporting tools (browser, search, context7, subagent, bg-shell, etc.), and a first-run setup wizard that collects API keys — ready to use in under two minutes.
 
 ## Current State
 
-M001 complete — centralized all git mechanics into a deterministic `GitServiceImpl` class.
+M001 complete. `gsd-pi` published to npm (v2.3.7). `npm install -g gsd-pi` installs a working `gsd` binary that launches with GSD ASCII art branding, loads all 11 bundled extensions without errors, stores state in `~/.gsd/`, and runs the first-run wizard for optional API keys. All 9 M001 requirements validated. M002 (Branded Installer & Onboarding Experience) is in progress — S01 complete, S02-S03 planned.
 
-M002 in progress — proactive secret management. S01 complete: established the secrets manifest contract (types, forgiving parser, canonical formatter, template file, planning prompt instructions with `secretsOutputPath` wiring). Milestone planning prompts now instruct the LLM to forecast API keys and write an `M00x-SECRETS.md` manifest. Next: S02 (enhanced collection UX with multi-line guidance, summary screen, existing key detection, destination inference).
+Key structural artifact: `pkg/` shim directory — `PI_PACKAGE_DIR` points here (not project root) to avoid pi's `getThemesDir()` collision with our real `src/` dir. Committed; `pkg/dist/modes/interactive/theme/` populated by `npm run copy-themes` at build time.
 
 ## Architecture / Key Patterns
 
-- **Extension architecture:** GSD is a pi extension in `src/resources/extensions/gsd/`. Registers tools, hooks (`agent_end`), and commands (`/gsd`, `/gsd auto`).
-- **Auto-mode state machine:** `auto.ts` derives state from disk files, determines next unit type, creates fresh LLM sessions with focused prompts. Unit types: research-milestone, plan-milestone, research-slice, plan-slice, execute-task, complete-slice, complete-milestone, reassess-roadmap, replan-slice, run-uat.
-- **Prompt injection:** Each unit type has a `.md` prompt template in `prompts/`. Variables are interpolated by `prompt-loader.ts`.
-- **State derivation:** `state.ts` reads roadmap/plan files to determine phase and active work item. State is derived, not stored.
-- **Git service:** `git-service.ts` owns all git mechanics. `worktree.ts` is a thin facade for backward compatibility.
-- **Secret collection:** `get-secrets-from-user.ts` provides `secure_env_collect` tool with paged masked TUI input. Currently reactive (collects when asked), not proactive. Planning prompts now forecast needed secrets — collection UX enhancement and auto-mode integration coming in S02/S03.
-- **Secrets manifest:** `M00x-SECRETS.md` files use H3 headings per env var key, bold metadata fields, numbered guidance steps. Parsed by `parseSecretsManifest()`, written by `formatSecretsManifest()`.
+- **SDK embedding**: `@mariozechner/pi-coding-agent` imported as a library via `createAgentSession` + `InteractiveMode`
+- **Branded app directories**: state lives in `~/.gsd/agent/`, sessions in `~/.gsd/sessions/` (constants in `src/app-paths.ts`)
+- **Branding via `PI_PACKAGE_DIR`**: env var set in `src/loader.ts` before any pi SDK loads; points to `pkg/` shim; `pkg/package.json` declares `piConfig: { name: "gsd", configDir: ".gsd" }`
+- **Two-file loader pattern**: `loader.ts` (sets env vars, zero SDK imports, dynamic-imports `cli.js`) → `cli.ts` (static SDK imports, wires all managers)
+- **pkg/ shim**: lean subdirectory — only `package.json` (piConfig) and `dist/modes/interactive/theme/` (pi theme assets). No `src/`. Avoids `getThemesDir()` src-check collision.
+- **Bundled extensions**: GSD extension + 10 supporting extensions in `src/resources/extensions/`; loaded via `buildResourceLoader()` → `DefaultResourceLoader.additionalExtensionPaths`; all 11 load clean on launch
+- **Bundled agents + AGENTS.md**: scout, researcher, worker in `src/resources/agents/`; `initResources()` writes bundled AGENTS.md to `~/.gsd/agent/` on first launch (existsSync guard)
+- **4 GSD_ env vars**: set in loader.ts before cli.js loads — `GSD_CODING_AGENT_DIR`, `GSD_BIN_PATH`, `GSD_WORKFLOW_PATH`, `GSD_BUNDLED_EXTENSION_PATHS`
+- **First-run wizard**: `src/wizard.ts` — detects missing optional keys (Brave/Context7/Jina), prompts with masked TTY input, writes to `~/.gsd/agent/auth.json`; `loadStoredEnvKeys` hydrates env on every launch before extensions load
 
 ## Capability Contract
 
@@ -30,5 +32,6 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: Deterministic GitService — Centralized all git mechanics into a single typed service
-- [ ] M002: Proactive Secret Management — Front-load API key collection during milestone planning so auto-mode runs uninterrupted
+- [x] M001: MVP CLI — `npm install -g gsd-pi` installs, launches, and runs with all bundled extensions and first-run setup
+- [ ] M002: Branded Installer & Onboarding Experience — ASCII logo, postinstall banner, unified onboarding wizard
+- [ ] M003: AI-Driven Test Flows — intent-based YAML test specs the agent writes during development and executes autonomously at UAT time (browser, mac, api targets)
