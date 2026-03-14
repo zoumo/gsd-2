@@ -50,17 +50,26 @@ export interface MergeSliceResult {
  * caller can dispatch a fix-merge session to resolve it.
  */
 export class MergeConflictError extends Error {
+  readonly conflictedFiles: string[];
+  readonly strategy: "squash" | "merge";
+  readonly branch: string;
+  readonly mainBranch: string;
+
   constructor(
-    public readonly conflictedFiles: string[],
-    public readonly strategy: "squash" | "merge",
-    public readonly branch: string,
-    public readonly mainBranch: string,
+    conflictedFiles: string[],
+    strategy: "squash" | "merge",
+    branch: string,
+    mainBranch: string,
   ) {
     super(
       `${strategy === "merge" ? "Merge" : "Squash-merge"} of "${branch}" into "${mainBranch}" ` +
       `failed with conflicts in ${conflictedFiles.length} non-.gsd file(s): ${conflictedFiles.join(", ")}`,
     );
     this.name = "MergeConflictError";
+    this.conflictedFiles = conflictedFiles;
+    this.strategy = strategy;
+    this.branch = branch;
+    this.mainBranch = mainBranch;
   }
 }
 
