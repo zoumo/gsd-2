@@ -281,6 +281,12 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      if (trimmed === "cleanup") {
+        await handleCleanupBranches(ctx, projectRoot());
+        await handleCleanupSnapshots(ctx, projectRoot());
+        return;
+      }
+
       if (trimmed === "cleanup branches") {
         await handleCleanupBranches(ctx, projectRoot());
         return;
