@@ -6,6 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-03-16
+
+### Added
+- Native web search results rendering in TUI with `PREFER_BRAVE_SEARCH` environment variable toggle
+- Meaningful commit messages generated from task summaries instead of generic messages
+- Incremental memory system for auto-mode sessions
+- Visualizer enriched with stats and discussion status
+- 14 new E2E smoke tests for CLI verification
+
+### Fixed
+- Phantom skip loop caused by stale crash recovery context
+- Skip-loop now interruptible and counts toward lifetime cap
+- Cache invalidation consistency — orphaned `invalidateStateCache()` calls replaced, DB artifact cache included in `invalidateAllCaches()`
+- Plan checkbox reconciliation on worktree re-attach after crash
+
+### Changed
+- Removed unnecessary `as any` casts, dead exports, and duplicate code
+- Updated documentation for v2.22 and v2.23 release features
+
 ## [2.24.0] - 2026-03-16
 
 ### Added
@@ -919,7 +938,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - License updated to MIT
 
-[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.24.0...HEAD
+[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.25.0...HEAD
+[2.25.0]: https://github.com/gsd-build/gsd-2/releases/tag/v2.25.0
 [2.24.0]: https://github.com/gsd-build/gsd-2/compare/v2.23.0...v2.24.0
 [2.23.0]: https://github.com/gsd-build/gsd-2/compare/v2.22.0...v2.23.0
 [2.21.0]: https://github.com/gsd-build/gsd-2/compare/v2.20.0...v2.21.0
