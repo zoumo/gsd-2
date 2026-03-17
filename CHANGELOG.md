@@ -6,6 +6,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-03-17
+
+### Added
+- `gsd headless query` command for instant, read-only state inspection — returns phase, cost, progress, and next-unit as parseable JSON without spawning an LLM session
+- `/gsd update` slash command for in-session self-update
+- `/gsd export --html --all` for retrospective milestone reports
+
+### Fixed
+- Failure recovery & resume safeguards: atomic file writes, OAuth fetch timeouts (30s), RPC subprocess exit detection, extension command context guards, bash temp file cleanup, settings write queue flush, LSP init retry with backoff, crash detection on session resume, blob garbage collection
+- Consolidated duplicate `mcp-server.ts` into single implementation
+- Consolidated duplicate `bundled-extension-paths.ts` into single module
+- Removed duplicate `marketplace-discovery.test.ts` test file
+- Established npm as canonical package manager
+- Exported RPC utilities from pi-coding-agent public API
+- Prompt system requires grammatical narration for clearer agent output
+
+### Changed
+- Updated documentation for v2.26 and v2.27.0 features
+- Documented all `preferences.md` fields in reference and template
+- Removed stale `.pi/agents/` files superseded by built-in agent definitions
+
 ## [2.27.0] - 2026-03-17
 
 ### Added
@@ -1020,7 +1041,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - License updated to MIT
 
-[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.27.0...HEAD
+[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.28.0...HEAD
+[2.28.0]: https://github.com/gsd-build/gsd-2/compare/v2.27.0...v2.28.0
 [2.27.0]: https://github.com/gsd-build/gsd-2/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/gsd-build/gsd-2/compare/v2.25.0...v2.26.0
 [2.25.0]: https://github.com/gsd-build/gsd-2/releases/tag/v2.25.0
