@@ -889,23 +889,37 @@ export async function startAuto(
       );
       return;
     }
-    // Stale lock from a dead process — synthesize crash recovery context.
-    const activityDir = join(gsdRoot(base), "activity");
-    const recovery = synthesizeCrashRecovery(
-      base, crashLock.unitType, crashLock.unitId,
-      crashLock.sessionFile, activityDir,
-    );
-    if (recovery && recovery.trace.toolCallCount > 0) {
-      pendingCrashRecovery = recovery.prompt;
+    // Stale lock from a dead process — validate before synthesizing recovery context.
+    // If the recovered unit belongs to a fully-completed milestone (SUMMARY exists),
+    // discard recovery context to prevent phantom skip loops (#790).
+    const recoveredMid = crashLock.unitId.split("/")[0];
+    const milestoneAlreadyComplete = recoveredMid
+      ? !!resolveMilestoneFile(base, recoveredMid, "SUMMARY")
+      : false;
+
+    if (milestoneAlreadyComplete) {
       ctx.ui.notify(
-        `${formatCrashInfo(crashLock)}\nRecovered ${recovery.trace.toolCallCount} tool calls from crashed session. Resuming with full context.`,
-        "warning",
+        `Crash recovery: discarding stale context for ${crashLock.unitId} — milestone ${recoveredMid} is already complete.`,
+        "info",
       );
     } else {
-      ctx.ui.notify(
-        `${formatCrashInfo(crashLock)}\nNo session data recovered. Resuming from disk state.`,
-        "warning",
+      const activityDir = join(gsdRoot(base), "activity");
+      const recovery = synthesizeCrashRecovery(
+        base, crashLock.unitType, crashLock.unitId,
+        crashLock.sessionFile, activityDir,
       );
+      if (recovery && recovery.trace.toolCallCount > 0) {
+        pendingCrashRecovery = recovery.prompt;
+        ctx.ui.notify(
+          `${formatCrashInfo(crashLock)}\nRecovered ${recovery.trace.toolCallCount} tool calls from crashed session. Resuming with full context.`,
+          "warning",
+        );
+      } else {
+        ctx.ui.notify(
+          `${formatCrashInfo(crashLock)}\nNo session data recovered. Resuming from disk state.`,
+          "warning",
+        );
+      }
     }
     clearLock(base);
   }
@@ -2418,6 +2432,28 @@ async function dispatchNextUnit(
       const skipCount = (unitConsecutiveSkips.get(idempotencyKey) ?? 0) + 1;
       unitConsecutiveSkips.set(idempotencyKey, skipCount);
       if (skipCount > MAX_CONSECUTIVE_SKIPS) {
+        // Cross-check: verify deriveState actually returns this unit (#790).
+        // If the unit's milestone is already complete, this is a phantom skip
+        // loop from stale crash recovery context — don't evict.
+        const skippedMid = unitId.split("/")[0];
+        const skippedMilestoneComplete = skippedMid
+          ? !!resolveMilestoneFile(basePath, skippedMid, "SUMMARY")
+          : false;
+        if (skippedMilestoneComplete) {
+          // Milestone is complete — evicting this key would fight self-heal.
+          // Clear skip counter and re-dispatch from fresh state.
+          unitConsecutiveSkips.delete(idempotencyKey);
+          invalidateStateCache();
+          ctx.ui.notify(
+            `Phantom skip loop cleared: ${unitType} ${unitId} belongs to completed milestone ${skippedMid}. Re-dispatching from fresh state.`,
+            "info",
+          );
+          _skipDepth++;
+          await new Promise(r => setTimeout(r, 50));
+          await dispatchNextUnit(ctx, pi);
+          _skipDepth = Math.max(0, _skipDepth - 1);
+          return;
+        }
         unitConsecutiveSkips.delete(idempotencyKey);
         completedKeySet.delete(idempotencyKey);
         removePersistedKey(basePath, idempotencyKey);
@@ -2465,6 +2501,24 @@ async function dispatchNextUnit(
     const skipCount2 = (unitConsecutiveSkips.get(idempotencyKey) ?? 0) + 1;
     unitConsecutiveSkips.set(idempotencyKey, skipCount2);
     if (skipCount2 > MAX_CONSECUTIVE_SKIPS) {
+      // Cross-check: verify the unit's milestone is still active (#790).
+      const skippedMid2 = unitId.split("/")[0];
+      const skippedMilestoneComplete2 = skippedMid2
+        ? !!resolveMilestoneFile(basePath, skippedMid2, "SUMMARY")
+        : false;
+      if (skippedMilestoneComplete2) {
+        unitConsecutiveSkips.delete(idempotencyKey);
+        invalidateStateCache();
+        ctx.ui.notify(
+          `Phantom skip loop cleared: ${unitType} ${unitId} belongs to completed milestone ${skippedMid2}. Re-dispatching from fresh state.`,
+          "info",
+        );
+        _skipDepth++;
+        await new Promise(r => setTimeout(r, 50));
+        await dispatchNextUnit(ctx, pi);
+        _skipDepth = Math.max(0, _skipDepth - 1);
+        return;
+      }
       unitConsecutiveSkips.delete(idempotencyKey);
       completedKeySet.delete(idempotencyKey);
       removePersistedKey(basePath, idempotencyKey);
