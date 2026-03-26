@@ -454,11 +454,6 @@ export class GitServiceImpl {
     this._milestoneId = milestoneId;
   }
 
-  /** Convenience wrapper: run git in this repo's basePath. */
-  private git(args: string[], options: { allowFailure?: boolean; input?: string } = {}): string {
-    return runGit(this.basePath, args, options);
-  }
-
   /**
    * Smart staging: `git add -A` excluding GSD runtime paths via pathspec.
    * Falls back to plain `git add -A` if the exclusion pathspec fails.
@@ -617,11 +612,6 @@ export class GitServiceImpl {
     return nativeGetCurrentBranch(this.basePath);
   }
 
-  /** True if currently on a GSD slice branch. */
-  // ─── Branch Lifecycle ──────────────────────────────────────────────────
-
-  // ─── S05 Features ─────────────────────────────────────────────────────
-
   /**
    * Create a snapshot ref for the given label (typically a slice branch name).
    * Gated on prefs.snapshots === true. Ref path: refs/gsd/snapshots/<label>/<timestamp>
@@ -681,8 +671,6 @@ export class GitServiceImpl {
       return { passed: false, skipped: false, command, error: msg };
     }
   }
-
-  // ─── Merge ─────────────────────────────────────────────────────────────
 
 }
 
