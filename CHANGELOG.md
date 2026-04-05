@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.63.0] - 2026-04-05
+
+### Added
+- **mcp-server**: add 6 read-only tools for project state queries (#3515)
+
+### Fixed
+- **gsd**: enrich vague diagnostic messages with root-cause context
+- **test**: reset dedup cache between ask-user-freetext tests
+- **db**: delete orphaned WAL/SHM files alongside empty gsd.db (#2478)
+- **gsd**: prevent auto-wrapup from interrupting in-flight tool calls (#3512)
+- **gsd**: handle bare model IDs in resolveDefaultSessionModel (#3517)
+- **gsd**: wrap decision and requirement saves in transaction to prevent ID races
+- **gsd**: prefer PREFERENCES.md over settings.json for session bootstrap model (#3517)
+- **gsd**: add Claude Code official skill directories to skill resolution
+- **dedup**: hash full question payload, not just IDs
+- **gsd**: prevent duplicate ask_user_questions dispatches with per-turn dedup cache
+- **pi-ai**: extend repairToolJson to handle XML tags and truncated numbers
+- **pi-coding-agent**: cancel stale retries after model switch
+
+### Changed
+- untrack .repowise/ and add to .gitignore
+
 ## [2.62.1] - 2026-04-05
 
 ### Fixed
@@ -2320,7 +2342,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - License updated to MIT
 
-[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.62.1...HEAD
+[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.63.0...HEAD
+[2.63.0]: https://github.com/gsd-build/gsd-2/compare/v2.62.1...v2.63.0
 [2.62.1]: https://github.com/gsd-build/gsd-2/compare/v2.62.0...v2.62.1
 [2.62.0]: https://github.com/gsd-build/gsd-2/compare/v2.61.0...v2.62.0
 [2.61.0]: https://github.com/gsd-build/gsd-2/compare/v2.60.0...v2.61.0
