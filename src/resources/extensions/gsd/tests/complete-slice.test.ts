@@ -407,6 +407,48 @@ console.log('\n=== complete-slice: handler with missing roadmap ===');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// complete-slice: Handler accepts string coercion for object arrays (#3541)
+// ═══════════════════════════════════════════════════════════════════════════
+
+console.log('\n=== complete-slice: handler accepts string-coerced arrays (#3541) ===');
+{
+  const dbPath = tempDbPath();
+  openDatabase(dbPath);
+
+  const { basePath } = createTempProject();
+
+  // Set up DB state
+  insertMilestone({ id: 'M001' });
+  insertSlice({ id: 'S01', milestoneId: 'M001' });
+  insertTask({ id: 'T01', sliceId: 'S01', milestoneId: 'M001', status: 'complete', title: 'Task 1' });
+
+  // Simulate LLM passing strings instead of objects — coerced before handler
+  const params = makeValidSliceParams();
+  const coerced = { ...params };
+  coerced.filesModified = ['src/foo.ts', 'src/bar.ts'].map((f: string) =>
+    ({ path: f, description: '' }),
+  );
+  coerced.requires = ['S00'].map((r: string) =>
+    ({ slice: r, provides: '' }),
+  );
+  coerced.requirementsAdvanced = ['R001'].map((r: string) =>
+    ({ id: r, how: '' }),
+  );
+
+  const result = await handleCompleteSlice(coerced, basePath);
+  assertTrue(!('error' in result), 'handler should succeed with coerced string arrays');
+  if (!('error' in result)) {
+    // Verify SUMMARY.md renders without crashing on coerced fields
+    const summaryContent = fs.readFileSync(result.summaryPath, 'utf-8');
+    assertMatch(summaryContent, /src\/foo\.ts/, 'summary should list coerced file path');
+    assertMatch(summaryContent, /R001/, 'summary should list coerced requirement');
+  }
+
+  cleanupDir(basePath);
+  cleanup(dbPath);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // complete-slice: step 13 specifies write tool for PROJECT.md (#2946)
 // ═══════════════════════════════════════════════════════════════════════════
 

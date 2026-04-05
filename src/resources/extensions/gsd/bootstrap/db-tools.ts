@@ -704,8 +704,14 @@ export function registerDbTools(pi: ExtensionAPI): void {
       };
     }
     try {
+      // Coerce string items to objects for verificationEvidence (#3541).
+      const coerced = { ...params };
+      coerced.verificationEvidence = (params.verificationEvidence ?? []).map((v: any) =>
+        typeof v === "string" ? { command: v, exitCode: 0, verdict: "pass", durationMs: 0 } : v,
+      );
+
       const { handleCompleteTask } = await import("../tools/complete-task.js");
-      const result = await handleCompleteTask(params, process.cwd());
+      const result = await handleCompleteTask(coerced, process.cwd());
       if ("error" in result) {
         return {
           content: [{ type: "text" as const, text: `Error completing task: ${result.error}` }],
@@ -761,12 +767,15 @@ export function registerDbTools(pi: ExtensionAPI): void {
       keyDecisions: Type.Optional(Type.Array(Type.String(), { description: "List of key decisions made during this task" })),
       blockerDiscovered: Type.Optional(Type.Boolean({ description: "Whether a plan-invalidating blocker was discovered" })),
       verificationEvidence: Type.Optional(Type.Array(
-        Type.Object({
-          command: Type.String({ description: "Verification command that was run" }),
-          exitCode: Type.Number({ description: "Exit code of the command" }),
-          verdict: Type.String({ description: "Pass/fail verdict (e.g. '✅ pass', '❌ fail')" }),
-          durationMs: Type.Number({ description: "Duration of the command in milliseconds" }),
-        }),
+        Type.Union([
+          Type.Object({
+            command: Type.String({ description: "Verification command that was run" }),
+            exitCode: Type.Number({ description: "Exit code of the command" }),
+            verdict: Type.String({ description: "Pass/fail verdict (e.g. '✅ pass', '❌ fail')" }),
+            durationMs: Type.Number({ description: "Duration of the command in milliseconds" }),
+          }),
+          Type.String({ description: "Fallback: verification summary string" }),
+        ]),
         { description: "Array of verification evidence entries" },
       )),
     }),
@@ -787,8 +796,27 @@ export function registerDbTools(pi: ExtensionAPI): void {
       };
     }
     try {
+      // Coerce string items to objects for fields where LLMs sometimes pass
+      // plain strings instead of the expected { key, value } shape (#3541).
+      const coerced = { ...params };
+      coerced.filesModified = (params.filesModified ?? []).map((f: any) =>
+        typeof f === "string" ? { path: f, description: "" } : f,
+      );
+      coerced.requires = (params.requires ?? []).map((r: any) =>
+        typeof r === "string" ? { slice: r, provides: "" } : r,
+      );
+      coerced.requirementsAdvanced = (params.requirementsAdvanced ?? []).map((r: any) =>
+        typeof r === "string" ? { id: r, how: "" } : r,
+      );
+      coerced.requirementsValidated = (params.requirementsValidated ?? []).map((r: any) =>
+        typeof r === "string" ? { id: r, proof: "" } : r,
+      );
+      coerced.requirementsInvalidated = (params.requirementsInvalidated ?? []).map((r: any) =>
+        typeof r === "string" ? { id: r, what: "" } : r,
+      );
+
       const { handleCompleteSlice } = await import("../tools/complete-slice.js");
-      const result = await handleCompleteSlice(params, process.cwd());
+      const result = await handleCompleteSlice(coerced, process.cwd());
       if ("error" in result) {
         return {
           content: [{ type: "text" as const, text: `Error completing slice: ${result.error}` }],
@@ -850,38 +878,53 @@ export function registerDbTools(pi: ExtensionAPI): void {
       drillDownPaths: Type.Optional(Type.Array(Type.String(), { description: "Paths to task summaries for drill-down" })),
       affects: Type.Optional(Type.Array(Type.String(), { description: "Downstream slices affected" })),
       requirementsAdvanced: Type.Optional(Type.Array(
-        Type.Object({
-          id: Type.String({ description: "Requirement ID" }),
-          how: Type.String({ description: "How it was advanced" }),
-        }),
+        Type.Union([
+          Type.Object({
+            id: Type.String({ description: "Requirement ID" }),
+            how: Type.String({ description: "How it was advanced" }),
+          }),
+          Type.String({ description: "Fallback: 'ID — how' string" }),
+        ]),
         { description: "Requirements advanced by this slice" },
       )),
       requirementsValidated: Type.Optional(Type.Array(
-        Type.Object({
-          id: Type.String({ description: "Requirement ID" }),
-          proof: Type.String({ description: "What proof validates it" }),
-        }),
+        Type.Union([
+          Type.Object({
+            id: Type.String({ description: "Requirement ID" }),
+            proof: Type.String({ description: "What proof validates it" }),
+          }),
+          Type.String({ description: "Fallback: 'ID — proof' string" }),
+        ]),
         { description: "Requirements validated by this slice" },
       )),
       requirementsInvalidated: Type.Optional(Type.Array(
-        Type.Object({
-          id: Type.String({ description: "Requirement ID" }),
-          what: Type.String({ description: "What changed" }),
-        }),
+        Type.Union([
+          Type.Object({
+            id: Type.String({ description: "Requirement ID" }),
+            what: Type.String({ description: "What changed" }),
+          }),
+          Type.String({ description: "Fallback: 'ID — what' string" }),
+        ]),
         { description: "Requirements invalidated or re-scoped" },
       )),
       filesModified: Type.Optional(Type.Array(
-        Type.Object({
-          path: Type.String({ description: "File path" }),
-          description: Type.String({ description: "What changed" }),
-        }),
+        Type.Union([
+          Type.Object({
+            path: Type.String({ description: "File path" }),
+            description: Type.String({ description: "What changed" }),
+          }),
+          Type.String({ description: "Fallback: file path string" }),
+        ]),
         { description: "Files modified with descriptions" },
       )),
       requires: Type.Optional(Type.Array(
-        Type.Object({
-          slice: Type.String({ description: "Dependency slice ID" }),
-          provides: Type.String({ description: "What was consumed from it" }),
-        }),
+        Type.Union([
+          Type.Object({
+            slice: Type.String({ description: "Dependency slice ID" }),
+            provides: Type.String({ description: "What was consumed from it" }),
+          }),
+          Type.String({ description: "Fallback: slice ID string" }),
+        ]),
         { description: "Upstream slice dependencies consumed" },
       )),
     }),
