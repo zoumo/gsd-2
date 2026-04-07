@@ -163,6 +163,12 @@ export class GSDNotificationOverlay {
     this.scrollOffset = Math.min(this.scrollOffset, maxScroll);
     const visibleContent = content.slice(this.scrollOffset, this.scrollOffset + visibleContentRows);
 
+    // Pad to consistent height so filter changes don't leave ghost artifacts
+    // (differential renderer can't clear old overlay positions)
+    while (visibleContent.length < maxVisibleRows) {
+      visibleContent.push("");
+    }
+
     const lines = this.wrapInBox(visibleContent, width);
 
     this.cachedWidth = width;
