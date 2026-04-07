@@ -1119,7 +1119,9 @@ export function insertMilestone(m: {
   ).run({
     ":id": m.id,
     ":title": m.title ?? "",
-    ":status": m.status ?? "active",
+    // Default to "queued" — never auto-create milestones as "active" (#3380).
+    // Callers that need "active" must pass it explicitly.
+    ":status": m.status ?? "queued",
     ":depends_on": JSON.stringify(m.depends_on ?? []),
     ":created_at": new Date().toISOString(),
     ":vision": m.planning?.vision ?? "",
