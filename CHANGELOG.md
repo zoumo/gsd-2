@@ -6,6 +6,32 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.71.0] - 2026-04-11
+
+### Added
+- **mcp-server**: add secure_env_collect tool via MCP form elicitation
+
+### Fixed
+- **tui**: clear pinned output on message_end to prevent duplicate display
+- **tui**: clear pinned latest output on turn completion
+- **tui**: restore pinned output above editor during tool execution
+- TOCTOU file locking race conditions in event log and custom workflow graph
+- **tui**: mask secure extension input values in interactive mode
+- **claude-code**: harden MCP elicitation schema handling
+- **claude-code**: accept secure_env_collect MCP elicitation forms
+- **interactive**: keep MCP tool output ordered and restore secure prompt fallback
+- **interactive**: preserve MCP tool output stream ordering
+- **gsd**: resolve workflow MCP test typing regressions
+- **mcp**: return isError flag on workflow tool execution failures
+- **discuss**: add structuredQuestionsAvailable conditional to all gates
+- **discuss**: add multi-round questioning to new-project discuss phase
+- **gsd**: harden claude-code workflow MCP bootstrap
+- **web**: drop provisional pre-tool question text
+
+### Changed
+- extract deriveStateFromDb logic into composable helpers
+- **pr**: drop web-layer changes from MCP stream-order fix
+
 ## [2.70.1] - 2026-04-11
 
 ### Fixed
@@ -2714,7 +2740,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - License updated to MIT
 
-[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.70.1...HEAD
+[Unreleased]: https://github.com/gsd-build/gsd-2/compare/v2.71.0...HEAD
+[2.71.0]: https://github.com/gsd-build/gsd-2/compare/v2.70.1...v2.71.0
 [2.70.1]: https://github.com/gsd-build/gsd-2/compare/v2.70.0...v2.70.1
 [2.70.0]: https://github.com/gsd-build/gsd-2/compare/v2.69.0...v2.70.0
 [2.69.0]: https://github.com/gsd-build/gsd-2/compare/v2.68.1...v2.69.0
