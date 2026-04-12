@@ -8,6 +8,7 @@ import { ensurePreferencesFile, handlePrefs, handlePrefsMode, handlePrefsWizard 
 import { runEnvironmentChecks } from "../../doctor-environment.js";
 import { deriveState } from "../../state.js";
 import { handleCmux } from "../../commands-cmux.js";
+import { setSessionModelOverride } from "../../session-model-override.js";
 import { projectRoot } from "../context.js";
 import { formattedShortcutPair } from "../../shortcut-defs.js";
 
@@ -334,6 +335,17 @@ async function handleModel(trimmedArgs: string, ctx: ExtensionCommandContext, pi
   if (!ok) {
     ctx.ui.notify(`No API key for ${targetModel.provider}/${targetModel.id}`, "warning");
     return;
+  }
+
+  // /gsd model is an explicit per-session pin for GSD dispatches.
+  // This is captured at auto bootstrap so it survives internal session
+  // switches during /gsd auto and /gsd next runs.
+  const sessionId = ctx.sessionManager?.getSessionId?.();
+  if (sessionId) {
+    setSessionModelOverride(sessionId, {
+      provider: targetModel.provider,
+      id: targetModel.id,
+    });
   }
 
   ctx.ui.notify(`Model: ${targetModel.provider}/${targetModel.id}`, "info");
