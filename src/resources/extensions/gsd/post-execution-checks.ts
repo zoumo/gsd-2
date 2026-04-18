@@ -138,10 +138,19 @@ export function resolveImportPath(
   // without requiring each extension to be enumerated (issue #4411). We only
   // do this when the import carries an extension so that extensionless module
   // imports still flow through the TS ESM convention and index-file resolvers.
-  if (extname(importPath) !== "") {
+  const explicitExt = extname(importPath);
+  if (explicitExt !== "") {
     const directPath = resolve(sourceDir, importPath);
     if (existsSync(directPath)) {
       return { exists: true, resolvedPath: directPath };
+    }
+    // Only .js/.jsx/.mjs/.cjs imports legitimately fall through for the TS
+    // ESM convention (.js → .ts). Any other explicit extension (.css, .json,
+    // .svg, images, fonts, .ts, .tsx, …) must stay unresolved when the direct
+    // path is missing — otherwise a stray `./missing.css.ts` could shadow a
+    // genuinely missing `./missing.css` import.
+    if (![".js", ".jsx", ".mjs", ".cjs"].includes(explicitExt)) {
+      return { exists: false, resolvedPath: null };
     }
   }
 

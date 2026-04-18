@@ -275,6 +275,35 @@ describe("resolveImportPath", () => {
     assert.ok(!result.exists);
     assert.equal(result.resolvedPath, null);
   });
+
+  // Pin TS ESM convention: explicit .js import must still resolve to the
+  // sibling .ts file when only the .ts exists.
+  test("resolves .js import to sibling .ts (TS ESM convention)", (t) => {
+    const dir = mkdtempSync(join(tmpdir(), "post-exec-test-tsesm-"));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "types.ts"), "export {};");
+    writeFileSync(join(dir, "src", "main.ts"), "");
+
+    const result = resolveImportPath("./types.js", "src/main.ts", dir);
+    assert.ok(result.exists);
+    assert.ok(result.resolvedPath?.endsWith("types.ts"));
+  });
+
+  // Non-code explicit extensions must not fall through to code-extension
+  // shadows: a missing ./missing.css must stay unresolved even if a stray
+  // ./missing.css.ts happens to exist.
+  test("missing asset import does not match code-extension shadow", (t) => {
+    const dir = mkdtempSync(join(tmpdir(), "post-exec-test-shadow-"));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "missing.css.ts"), "export {};");
+    writeFileSync(join(dir, "src", "main.ts"), "");
+
+    const result = resolveImportPath("./missing.css", "src/main.ts", dir);
+    assert.ok(!result.exists);
+    assert.equal(result.resolvedPath, null);
+  });
 });
 
 // ─── Import Resolution Check Tests ───────────────────────────────────────────
