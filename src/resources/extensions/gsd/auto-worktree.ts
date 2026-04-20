@@ -238,14 +238,6 @@ function clearProjectRootStateFiles(basePath: string, milestoneId: string): void
   }
 }
 
-function isProjectGsdSymlink(basePath: string): boolean {
-  try {
-    return lstatSyncFn(join(basePath, ".gsd")).isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
 // ─── Build Artifact Auto-Resolve ─────────────────────────────────────────────
 
 /** Patterns for machine-generated build artifacts that can be safely
@@ -1664,54 +1656,15 @@ export function mergeMilestoneToMain(
     }
   }
 
-  // 7. Stash any pre-existing dirty files so the squash merge is not
-  //    blocked by unrelated local changes (#2151).  clearProjectRootStateFiles
-  //    only removes untracked .gsd/ files; tracked dirty files elsewhere (e.g.
-  //    .planning/work-state.json with stash conflict markers) are invisible to
-  //    that cleanup but will cause `git merge --squash` to reject.
-  let stashed = false;
-  try {
-    const status = execFileSync("git", ["status", "--porcelain"], {
-      cwd: originalBasePath_,
-      stdio: ["ignore", "pipe", "pipe"],
-      encoding: "utf-8",
-    }).trim();
-    if (status) {
-      // Use --include-untracked to stash untracked files that would block
-      // the squash merge, but EXCLUDE .gsd/milestones/ (#2505).
-      // --include-untracked without exclusion sweeps queued milestone
-      // CONTEXT files into the stash. If stash pop later fails, those files
-      // are permanently trapped in the stash entry and lost on the next
-      // stash push or drop.
-      //
-      // When `.gsd` itself is a symlink, Git rejects pathspecs below it
-      // ("beyond a symbolic link"). In that layout, exclude the whole symlink
-      // and keep stashing real project files that could block the merge.
-      const stashPathspecs = isProjectGsdSymlink(originalBasePath_)
-        ? [".", ":(exclude).gsd"]
-        : [":(exclude).gsd/milestones"];
-      execFileSync(
-        "git",
-        [
-          "stash", "push", "--include-untracked",
-          "-m", `gsd: pre-merge stash for ${milestoneId}`,
-          "--", ...stashPathspecs,
-        ],
-        { cwd: originalBasePath_, stdio: ["ignore", "pipe", "pipe"], encoding: "utf-8" },
-      );
-      stashed = true;
-    }
-  } catch (err) {
-    // Stash failure is non-fatal — proceed without stash and let the merge
-    // report the dirty tree if it fails.
-    logWarning("worktree", `git stash failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // 7a. Shelter queued milestone directories before the squash merge (#2505).
+  // 7. Shelter queued milestone directories before the squash merge (#2505).
   // The milestone branch may contain copies of queued milestone dirs (via
   // copyPlanningArtifacts), so `git merge --squash` rejects when those same
   // files exist as untracked in the working tree. Temporarily move them to
   // a backup location, then restore after the merge+commit.
+  //
+  // MUST run BEFORE the pre-merge stash (step 7a) so `--include-untracked`
+  // does not sweep queued CONTEXT files into the stash. If stash pop later
+  // fails, files trapped inside the stash are permanently lost (#2505).
   const milestonesDir = join(gsdRoot(originalBasePath_), "milestones");
   const shelterDir = join(gsdRoot(originalBasePath_), ".milestone-shelter");
   const shelteredDirs: string[] = [];
@@ -1757,6 +1710,35 @@ export function mergeMilestoneToMain(
   } catch (err) {
     // Non-fatal — proceed with merge; untracked files may block it
     logWarning("worktree", `milestone shelter operation failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 7a. Stash pre-existing dirty files so the squash merge is not blocked by
+  //     unrelated local changes (#2151). Includes untracked files to handle
+  //     locally-added files that conflict with tracked files on the milestone
+  //     branch. Passing NO pathspec lets git skip gitignored paths silently;
+  //     adding an explicit pathspec trips a `git add`-style fatal on ignored
+  //     entries (e.g. a gitignored `.gsd` symlink under ADR-002) (#4573).
+  //     Queued CONTEXT files under `.gsd/milestones/*` are already sheltered
+  //     in step 7 above, so they won't be swept into the stash.
+  let stashed = false;
+  try {
+    const status = execFileSync("git", ["status", "--porcelain"], {
+      cwd: originalBasePath_,
+      stdio: ["ignore", "pipe", "pipe"],
+      encoding: "utf-8",
+    }).trim();
+    if (status) {
+      execFileSync(
+        "git",
+        ["stash", "push", "--include-untracked", "-m", `gsd: pre-merge stash for ${milestoneId}`],
+        { cwd: originalBasePath_, stdio: ["ignore", "pipe", "pipe"], encoding: "utf-8" },
+      );
+      stashed = true;
+    }
+  } catch (err) {
+    // Stash failure is non-fatal — proceed without stash and let the merge
+    // report the dirty tree if it fails.
+    logWarning("worktree", `git stash failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 7b. Clean up stale merge state before attempting squash merge (#2912).

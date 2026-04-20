@@ -378,3 +378,59 @@ test("#2505: back-to-back merges preserve queued CONTEXT files", () => {
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+// #4573: When `.gsd` is a gitignored symlink (ADR-002 layout) and the project
+// `.gitignore` contains `.gsd`, `git stash push --include-untracked -- <pathspec>`
+// fatals with "The following paths are ignored by one of your .gitignore files".
+// The prior tests used a symlinked `.gsd` but no `.gitignore`, so this failure
+// mode was invisible to CI. Fixture must include BOTH the symlink AND the
+// ignore rule to reproduce the bug on pre-fix code.
+test("#4573: gitignored .gsd symlink does not break pre-merge stash", () => {
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), "wt-4573-ignored-symlink-")));
+  const stateDir = realpathSync(mkdtempSync(join(tmpdir(), "wt-4573-state-")));
+  try {
+    run("git init", repo);
+    run("git config user.email test@test.com", repo);
+    run("git config user.name Test", repo);
+    writeFileSync(join(repo, "README.md"), "# test\n");
+    // Matches what BASELINE_PATTERNS in gitignore.ts writes for real projects.
+    writeFileSync(join(repo, ".gitignore"), ".gsd\n.gsd-id\n");
+    symlinkSync(stateDir, join(repo, ".gsd"));
+    run("git add README.md .gitignore", repo);
+    run("git commit -m init", repo);
+    run("git branch -M main", repo);
+
+    const wtPath = createAutoWorktree(repo, "M001");
+    const worktreeName = wtPath.replaceAll("\\", "/").split("/").pop() || "M001";
+    const sliceBranch = `slice/${worktreeName}/S01`;
+    run(`git checkout -b "${sliceBranch}"`, wtPath);
+    writeFileSync(join(wtPath, "app.ts"), "export const app = true;\n");
+    run("git add app.ts", wtPath);
+    run('git commit -m "add feature"', wtPath);
+    run("git checkout milestone/M001", wtPath);
+    run(`git merge --no-ff "${sliceBranch}" -m "merge S01"`, wtPath);
+
+    // Dirty a tracked file so the pre-merge stash branch actually runs.
+    writeFileSync(join(repo, "README.md"), "# test\n\nDirty.\n");
+
+    const result = mergeMilestoneToMain(
+      repo,
+      "M001",
+      makeRoadmap("M001", "Feature", [{ id: "S01", title: "Feature" }]),
+    );
+
+    assert.ok(
+      result.commitMessage.includes("GSD-Milestone: M001"),
+      "merge must succeed despite gitignored .gsd symlink",
+    );
+    assert.ok(existsSync(join(repo, "app.ts")), "milestone code merged to main");
+    assert.equal(
+      lstatSync(join(repo, ".gsd")).isSymbolicLink(),
+      true,
+      ".gsd symlink remains in place",
+    );
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
